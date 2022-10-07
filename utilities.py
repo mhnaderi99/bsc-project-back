@@ -68,7 +68,15 @@ def remaining_time_until_target0(t, params, lambda_f):
     return (v0/lambda0)*np.log(lambda_p/lambda_f)
 
 
-remaining_time_until_targets = {0: remaining_time_until_target0}
+def remaining_time_until_target1(t, params, lambda_f):
+    lambda0 = params['lambda0']
+    theta = params['theta']
+    lambda_p = intensity_rate_at_time1(t, params)
+    return (lambda0 - lambda_f)/(lambda_f*lambda0*theta) - (lambda0 - lambda_p)/(lambda_p*lambda0*theta)
+
+
+remaining_time_until_targets = {0: remaining_time_until_target0,
+                                1: remaining_time_until_target1}
 
 
 def intensity_rate_decrement_per_fault0(lambda0, v0):
