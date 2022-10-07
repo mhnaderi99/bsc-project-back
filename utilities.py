@@ -40,7 +40,15 @@ def intensity_rate_at_time1(t, params):
     return lambda0 / (1 + lambda0 * theta * t)
 
 
-intensity_rate_at_times = {0: intensity_rate_at_time0, 1:intensity_rate_at_time1}
+def intensity_rate_at_time2(t, params):
+    a = params['a']
+    b = params['b']
+    return b*(a - miu2(t, params))
+
+
+intensity_rate_at_times = {0: intensity_rate_at_time0,
+                           1: intensity_rate_at_time1,
+                           2: intensity_rate_at_time2}
 
 
 def remaining_faults_until_target0(t, params, lambda_f):
@@ -57,8 +65,15 @@ def remaining_faults_until_target1(t, params, lambda_f):
     return -np.log(lambda_f/lambda_p)/theta
 
 
+def remaining_faults_until_target2(t, params, lambda_f):
+    b = params['b']
+    lambda_p = intensity_rate_at_time2(t, params)
+    return (lambda_p - lambda_f)/b
+
+
 remaining_faults_until_targets = {0: remaining_faults_until_target0,
-                                  1: remaining_faults_until_target1}
+                                  1: remaining_faults_until_target1,
+                                  2: remaining_faults_until_target2}
 
 
 def remaining_time_until_target0(t, params, lambda_f):
@@ -75,8 +90,15 @@ def remaining_time_until_target1(t, params, lambda_f):
     return (lambda0 - lambda_f)/(lambda_f*lambda0*theta) - (lambda0 - lambda_p)/(lambda_p*lambda0*theta)
 
 
+def remaining_time_until_target2(t, params, lambda_f):
+    b = params['b']
+    lambda_p = intensity_rate_at_time2(t, params)
+    return (np.log(lambda_p) - np.log(lambda_f))/b
+
+
 remaining_time_until_targets = {0: remaining_time_until_target0,
-                                1: remaining_time_until_target1}
+                                1: remaining_time_until_target1,
+                                2: remaining_time_until_target2}
 
 
 def intensity_rate_decrement_per_fault0(lambda0, v0):
@@ -95,7 +117,13 @@ def miu1(t, params):
     return np.log(1 + lambda0*theta*t)/theta
 
 
-mius = {0: miu0, 1: miu1}
+def miu2(t, params):
+    a = params['a']
+    b = params['b']
+    return a*(1 - np.exp(-b*t))
+
+
+mius = {0: miu0, 1: miu1, 2: miu2}
 
 
 def faults_in_time_range(t1, t2, params, model):
@@ -132,6 +160,8 @@ class Model:
             self.params = {'v0': popt[1], 'lambda0': popt[0]}
         if self.model == 1:
             self.params = {'theta': popt[1], 'lambda0': popt[0]}
+        if self.model == 2:
+            self.params = {'b': popt[1], 'a': popt[1]}
         # plot(x, y, popt)
         return popt, x, y, funcs[self.model](x, *popt)
 
