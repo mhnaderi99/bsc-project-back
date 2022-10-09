@@ -5,8 +5,8 @@ import numpy as np
 
 
 def fault_rate(row):
-    if row['time'] != 0:
-        return row['num'] / row['time']
+    if row['normal_time'] != 0:
+        return row['num'] / row['normal_time']
     else:
         return 0
 
@@ -19,11 +19,27 @@ def func1(t, lambda0, theta):
     return lambda0 / (1 + lambda0 * theta * t)
 
 
+# G-O model
 def func2(t, a, b):
     return a * b * np.exp(-b*t)
 
 
-funcs = {0: func0, 1: func1, 2: func2}
+# # G-O optimized model
+# def func2(t, a, b, c):
+#     return a * b * c * np.exp(-b*(np.power(t, c)))*np.power(t, c-1)
+
+
+# delayed s-shaped model
+def func3(t, a, b):
+    return a*b**2*t*np.exp(-b*t)
+
+
+# inflection s-shaped Model
+def func4(t, a, b, beta):
+    return func2(t, a, b)
+
+
+funcs = {0: func0, 1: func1, 2: func2, 3: func3, 4: func4}
 
 
 def intensity_rate_at_time0(t, params):
@@ -123,7 +139,49 @@ def miu2(t, params):
     return a*(1 - np.exp(-b*t))
 
 
-mius = {0: miu0, 1: miu1, 2: miu2}
+def miu3(t, params):
+    a = params['a']
+    b = params['b']
+    bt = (t*b**2)/(1 + b*t)
+    return a*(1 - (1 + bt*t)*np.exp(-bt*t))
+
+
+# inflection s-shaped Model
+def miu4(t, params):
+    a = params['a']
+    b = params['b']
+    beta = params['beta']
+    bt = b / (1 + beta * np.exp(-b * t))
+    return a * (1 - np.exp(-bt * t)) / (1 + beta * np.exp(-bt * t))
+
+
+mius = {0: miu0, 1: miu1, 2: miu2, 3: miu3, 4: miu4}
+
+
+def m0(t, lambda0, v0):
+    return v0 * (1 - np.exp(-(lambda0 / v0) * t))
+
+
+def m1(t, lambda0, theta):
+    return np.log(1 + lambda0 * theta * t) / theta
+
+
+def m2(t, a, b):
+    return a * (1 - np.exp(-b * t))
+
+
+def m3(t, a, b):
+    bt = (t * b ** 2) / (1 + b * t)
+    return a * (1 - (1 + bt * t) * np.exp(-bt * t))
+
+
+# inflection s-shaped Model
+def m4(t, a, b, beta):
+    bt = b/(1 + beta*np.exp(-b*t))
+    return a*(1 - np.exp(-bt*t))/(1 + beta*np.exp(-bt*t))
+
+
+ms = {0: m0, 1: m1, 2: m2, 3: m3, 4: m4}
 
 
 def faults_in_time_range(t1, t2, params, model):
@@ -137,11 +195,13 @@ def plot(xdata, ydata, popt):
 
 
 def read_file(filename):
-    df = pd.read_excel('./downloads/atnt_data-2.xlsx')
+    df = pd.read_excel('./downloads/musa_dataset.xlsx')
     df['fault_rate'] = df.apply(lambda row: fault_rate(row), axis=1)
-    x = df['time'].to_numpy()
-    y = df['fault_rate'].to_numpy()
-    return x, y
+    training_size = max(int(df['num'].size / 5), 15)
+    x = df['normal_time'].to_numpy()[1:training_size]
+    y = df['fault_rate'].to_numpy()[1:training_size]
+    nums = df['num'].to_numpy()[1:training_size]
+    return x, y, nums
 
 
 class Model:
@@ -153,17 +213,31 @@ class Model:
         self.params = {}
 
     def handle(self):
-        x, y = read_file(self.filename)
+        x, y, nums = read_file(self.filename)
         self.now = x.max() + 1
-        popt, pcov = curve_fit(funcs[self.model], x, y)
+        popt, pcov = curve_fit(funcs[self.model], x, y, method='dogbox')
+        popt2, pcov2 = curve_fit(ms[self.model], x, nums)
+        print(popt, popt2)
+        x2 = np.linspace(np.min(x), np.max(x), num=100)
+        fitted = funcs[self.model](x, *popt2)
+        fitted2 = funcs[self.model](x2, *popt2)
+        error = np.sum(np.abs(y - fitted) ** 2) / len(y)
         if self.model == 0:
-            self.params = {'v0': popt[1], 'lambda0': popt[0]}
+            self.params = {'v0': popt2[1], 'lambda0': popt2[0]}
         if self.model == 1:
-            self.params = {'theta': popt[1], 'lambda0': popt[0]}
+            self.params = {'theta': popt2[1], 'lambda0': popt2[0]}
         if self.model == 2:
-            self.params = {'b': popt[1], 'a': popt[1]}
+            self.params = {'b': popt2[1], 'a': popt2[0]}
+        if self.model == 3:
+            self.params = {'b': popt2[1], 'a': popt2[0]}
+        if self.model == 4:
+            self.params = {'beta': popt2[2], 'b': popt2[1], 'a': popt2[0]}
         # plot(x, y, popt)
-        return popt, x, y, funcs[self.model](x, *popt)
+
+        # miiu = mius[self.model](x, self.params)
+        miiu2 = mius[self.model](x2, self.params)
+
+        return popt2, x, y, fitted, error, x2, fitted2, nums, miiu2
 
 
 # xdata, ydata = read_file('atnt_data.xlsx')

@@ -33,10 +33,11 @@ def calculate():
     data = json.loads(request.form['data'])
 
     p.model = data['model']
-    parameters, x, y, fit = p.handle()
+    parameters, x, y, fit, error, x2, fit2, miiu, miiu2 = p.handle()
     # print(data)
     return {'status': 'OK', 'params': parameters.tolist(), 'model': p.model, 'xdata': x.tolist(), 'ydata': y.tolist(),
-            'fit': fit.tolist()}
+            'fit': fit.tolist(), 'error': error, 'x2': x2.tolist(), 'fit2': fit2.tolist(), 'miu': miiu.tolist(),
+            'miu2': miiu2.tolist()}
 
 
 @app.route('/intensityRateAtTime', methods=['GET'])
