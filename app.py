@@ -40,6 +40,11 @@ def calculate():
             'miu2': miiu2.tolist()}
 
 
+@app.route('/getErrors', methods=['GET'])
+def get_errors():
+    errors = p.calculate_errors()
+    return {'status': 'OK', 'errors': errors}
+
 @app.route('/intensityRateAtTime', methods=['GET'])
 def get_intensity_rate_at_time():
     params = request.args
