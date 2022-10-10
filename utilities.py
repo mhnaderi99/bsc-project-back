@@ -311,9 +311,7 @@ class Model:
     def handle(self):
         x, y, nums, eval_x, eval_nums = read_file(file_number)
         self.now = x.max() + 1
-        # popt, pcov = curve_fit(funcs[self.model], x, y, maxfev=10000)
-        popt2, pcov2 = curve_fit(ms[self.model], x, nums, maxfev=10000)
-        # print(popt, popt2)
+        popt2, pcov2 = curve_fit(ms[self.model], x, nums, maxfev=100000)
 
         self.params = handle_params(self.model, popt2)
 
