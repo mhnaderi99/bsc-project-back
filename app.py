@@ -74,3 +74,10 @@ def get_faults_in_time_range():
     from_time = int(params['from'])
     to_time = int(params['to'])
     return {'status': 'OK', 'faults': faults_in_time_range(from_time, to_time, p.params, p.model)}
+
+
+@app.route('/estimateReliability', methods=['GET'])
+def estimate_reliability():
+    params = request.args
+    delta_t = int(params['delta_t'])
+    return {'status': 'OK', 'reliability': reliability(p.model, p.now, p.params, delta_t)}

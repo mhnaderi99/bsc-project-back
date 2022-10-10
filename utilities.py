@@ -1,7 +1,11 @@
 import matplotlib.pyplot as plt
+import numpy
 import pandas as pd
 from scipy.optimize import curve_fit
 import numpy as np
+import warnings
+
+warnings.filterwarnings('ignore')
 
 
 models = 6
@@ -14,10 +18,12 @@ def fault_rate(row):
         return 0
 
 
+# basic execution time model
 def func0(t, lambda0, v0):
     return lambda0 * np.exp((-lambda0/v0) * t)
 
 
+# logarithmic poisson model
 def func1(t, lambda0, theta):
     return lambda0 / (1 + lambda0 * theta * t)
 
@@ -34,18 +40,22 @@ def func2(t, a, b):
 
 # delayed s-shaped model
 def func3(t, a, b):
-    return (-a/np.power(b*t + 1, 3))*((-np.power(b, 5)*np.exp(-(b**2*t**2)/(b*t + 1))*np.power(t, 4)) -
-                                      (2*np.power(b, 4)*np.exp(-(b**2*t**2)/(b*t + 1))*np.power(t, 3)))
+    return a*b**2*t*np.exp(-b*t)
 
 
 # inflection s-shaped Model
 def func4(t, a, b, beta):
-    return func2(t, a, b)
+    return (a*b*np.exp(-b*t)*(1+beta*np.exp(-b*t)) + a*b*beta*np.exp(-b*t)*(1-np.exp(-b*t)))/(1+beta*np.exp(-b*t))**2
 
 
 # Yamada Exponential Model
 def func5(t, a, r, alpha, beta):
     return a*r*alpha*beta*np.exp(-r*alpha*(1 - np.exp(-beta*t)) - beta*t)
+
+
+# Yamada Imperfect Debugging Model
+def func6(t, a, b, alpha):
+    return a*b*(alpha*np.exp(alpha*t) + b*np.exp(-b*t))/(alpha + b)
 
 
 funcs = {0: func0, 1: func1, 2: func2, 3: func3, 4: func4, 5: func5}
@@ -130,51 +140,6 @@ def intensity_rate_decrement_per_fault0(lambda0, v0):
     return -lambda0/v0
 
 
-def miu0(t, params):
-    lambda0 = params['lambda0']
-    v0 = params['v0']
-    return v0*(1 - np.exp(-(lambda0/v0)*t))
-
-
-def miu1(t, params):
-    lambda0 = params['lambda0']
-    theta = params['theta']
-    return np.log(1 + lambda0*theta*t)/theta
-
-
-def miu2(t, params):
-    a = params['a']
-    b = params['b']
-    return a*(1 - np.exp(-b*t))
-
-
-def miu3(t, params):
-    a = params['a']
-    b = params['b']
-    bt = (t*b**2)/(1 + b*t)
-    return a*(1 - (1 + bt*t)*np.exp(-bt*t))
-
-
-# inflection s-shaped Model
-def miu4(t, params):
-    a = params['a']
-    b = params['b']
-    beta = params['beta']
-    bt = b / (1 + beta * np.exp(-b * t))
-    return a * (1 - np.exp(-bt * t)) / (1 + beta * np.exp(-bt * t))
-
-
-# Yamada Exponential Model
-def miu5(t, params):
-    a = params['a']
-    r = params['r']
-    alpha = params['alpha']
-    beta = params['beta']
-    return a*(1 - np.exp(-r*alpha*(1 - np.exp(-beta*t))))
-
-
-mius = {0: miu0, 1: miu1, 2: miu2, 3: miu3, 4: miu4, 5: miu5}
-
 
 def m0(t, lambda0, v0):
     return v0 * (1 - np.exp(-(lambda0 / v0) * t))
@@ -189,13 +154,15 @@ def m2(t, a, b):
 
 
 def m3(t, a, b):
-    bt = (t * b ** 2) / (1 + b * t)
+    # bt = (t * b ** 2) / (1 + b * t)
+    bt = b
     return a * (1 - (1 + bt * t) * np.exp(-bt * t))
 
 
 # inflection s-shaped Model
 def m4(t, a, b, beta):
-    bt = b/(1 + beta*np.exp(-b*t))
+    # bt = b/(1 + beta*np.exp(-b*t))
+    bt = b
     return a*(1 - np.exp(-bt*t))/(1 + beta*np.exp(-bt*t))
 
 
@@ -205,11 +172,75 @@ def m5(t, a, r, alpha, beta):
     return a*(1 - np.exp(-r*alpha*(1 - np.exp(-beta*t))))
 
 
+# Yamada Imperfect Debugging
+def m6(t, a, b, alpha):
+    return a*b*(np.exp(alpha*t) - np.exp(-b*t))/(alpha + b)
+
+
 ms = {0: m0, 1: m1, 2: m2, 3: m3, 4: m4, 5: m5}
+
+
+def miu0(t, params):
+    lambda0 = params['lambda0']
+    v0 = params['v0']
+    return m0(t, lambda0, v0)
+
+
+def miu1(t, params):
+    lambda0 = params['lambda0']
+    theta = params['theta']
+    return m1(t, lambda0, theta)
+
+
+def miu2(t, params):
+    a = params['a']
+    b = params['b']
+    return m2(t, a, b)
+
+
+def miu3(t, params):
+    a = params['a']
+    b = params['b']
+    # bt = (t*b**2)/(1 + b*t)
+    bt = b
+    return m3(t, a, b)
+
+
+# inflection s-shaped Model
+def miu4(t, params):
+    a = params['a']
+    b = params['b']
+    beta = params['beta']
+    bt = b / (1 + beta * np.exp(-b * t))
+    return m4(t, a, b, beta)
+
+
+# Yamada Exponential Model
+def miu5(t, params):
+    a = params['a']
+    r = params['r']
+    alpha = params['alpha']
+    beta = params['beta']
+    return m5(t, a, r, alpha, beta)
+
+
+# Yamada Imperfect Debugging Model
+def miu6(t, params):
+    a = params['a']
+    b = params['b']
+    alpha = params['alpha']
+    return m6(t, a, b, alpha)
+
+
+mius = {0: miu0, 1: miu1, 2: miu2, 3: miu3, 4: miu4, 5: miu5}
 
 
 def faults_in_time_range(t1, t2, params, model):
     return mius[model](t2, params) - mius[model](t1, params)
+
+
+def reliability(model_number, t, params, x):
+    return numpy.exp(mius[model_number](t, params) - mius[model_number](t+x, params))
 
 
 def plot(xdata, ydata, popt):
@@ -222,7 +253,7 @@ def read_file(data_index):
     datasets = ['./downloads/atnt_data.xlsx', './downloads/musa_dataset.xlsx']
     df = pd.read_excel(datasets[data_index])
     df['fault_rate'] = df.apply(lambda row: fault_rate(row), axis=1)
-    training_size = max(int(df['num'].size / 2), 15)
+    training_size = max(4*int(df['num'].size / 5), 15)
     start_index = 1
     x = df['normal_time'].to_numpy()[start_index:training_size]
     y = df['fault_rate'].to_numpy()[start_index:training_size]
@@ -231,6 +262,20 @@ def read_file(data_index):
     eval_nums = df['num'].to_numpy()[training_size:]
     return x, y, nums, eval_x, eval_nums
 
+
+def handle_params(model_number, popt2):
+    if model_number == 0:
+        return {'v0': popt2[1], 'lambda0': popt2[0]}
+    if model_number == 1:
+        return {'theta': popt2[1], 'lambda0': popt2[0]}
+    if model_number == 2:
+        return {'b': popt2[1], 'a': popt2[0]}
+    if model_number == 3:
+        return {'b': popt2[1], 'a': popt2[0]}
+    if model_number == 4:
+        return {'beta': popt2[2], 'b': popt2[1], 'a': popt2[0]}
+    if model_number == 5:
+        return {'beta': popt2[3], 'alpha': popt2[2], 'r': popt2[1], 'a': popt2[0]}
 
 
 class Model:
@@ -248,18 +293,8 @@ class Model:
         x, y, nums, eval_x, eval_nums = read_file(file_number)
         popt2, pcov2 = curve_fit(ms[self.model], x, nums, maxfev=10000)
 
-        if self.model == 0:
-            self.params = {'v0': popt2[1], 'lambda0': popt2[0]}
-        if self.model == 1:
-            self.params = {'theta': popt2[1], 'lambda0': popt2[0]}
-        if self.model == 2:
-            self.params = {'b': popt2[1], 'a': popt2[0]}
-        if self.model == 3:
-            self.params = {'b': popt2[1], 'a': popt2[0]}
-        if self.model == 4:
-            self.params = {'beta': popt2[2], 'b': popt2[1], 'a': popt2[0]}
-        if self.model == 5:
-            self.params = {'beta': popt2[3], 'alpha': popt2[2], 'r': popt2[1], 'a': popt2[0]}
+        self.params = handle_params(self.model, popt2)
+
         miiu_eval = mius[self.model](eval_x, self.params)
         error_eval = np.sum(np.power(miiu_eval - eval_nums, 2)) / len(eval_nums)
         self.params = para
@@ -280,18 +315,8 @@ class Model:
         popt2, pcov2 = curve_fit(ms[self.model], x, nums, maxfev=10000)
         # print(popt, popt2)
 
-        if self.model == 0:
-            self.params = {'v0': popt2[1], 'lambda0': popt2[0]}
-        if self.model == 1:
-            self.params = {'theta': popt2[1], 'lambda0': popt2[0]}
-        if self.model == 2:
-            self.params = {'b': popt2[1], 'a': popt2[0]}
-        if self.model == 3:
-            self.params = {'b': popt2[1], 'a': popt2[0]}
-        if self.model == 4:
-            self.params = {'beta': popt2[2], 'b': popt2[1], 'a': popt2[0]}
-        if self.model == 5:
-            self.params = {'beta': popt2[3], 'alpha': popt2[2], 'r': popt2[1], 'a': popt2[0]}
+        self.params = handle_params(self.model, popt2)
+
         # plot(x, y, popt)
 
         x2 = np.linspace(np.min(x), np.max(x), num=1000)
@@ -301,9 +326,12 @@ class Model:
         miiu = mius[self.model](x, self.params)
         miiu2 = mius[self.model](x2, self.params)
 
+        r = reliability(self.model, self.now, self.params, 100)
+        print('Reliablity: ', r)
         # d = np.diff(miiu2, x2)
 
-        errors = self.calculate_errors()
+        # errors = self.calculate_errors()
+        errors = []
         return popt2, x, y, fitted, errors, x2, fitted2, nums, miiu2
 
 
