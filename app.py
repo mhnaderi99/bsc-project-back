@@ -81,3 +81,10 @@ def estimate_reliability():
     params = request.args
     delta_t = int(params['delta_t'])
     return {'status': 'OK', 'reliability': reliability(p.model, p.now, p.params, delta_t)}
+
+
+@app.route('/safeTimeReliability', methods=['GET'])
+def safe_time_until_reliability():
+    params = request.args
+    target = float(params['target'])
+    return {'status': 'OK', 'time': safe_time_reliability(p.model, p.now, p.params, target)}

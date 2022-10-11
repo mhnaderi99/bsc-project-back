@@ -64,26 +64,48 @@ funcs = {0: func0, 1: func1, 2: func2, 3: func3, 4: func4, 5: func5}
 def intensity_rate_at_time0(t, params):
     lambda0 = params['lambda0']
     v0 = params['v0']
-    # print(lambda0 * np.exp((-lambda0/v0) * t))
-    return lambda0 * np.exp((-lambda0/v0) * t)
+    return func0(t, lambda0, v0)
 
 
 def intensity_rate_at_time1(t, params):
     lambda0 = params['lambda0']
     theta = params['theta']
-    # print(lambda0 / (1 + lambda0 * theta * t))
-    return lambda0 / (1 + lambda0 * theta * t)
+    return func1(t, lambda0, theta)
 
 
 def intensity_rate_at_time2(t, params):
     a = params['a']
     b = params['b']
-    return b*(a - miu2(t, params))
+    return func2(t, a, b)
+
+
+def intensity_rate_at_time3(t, params):
+    a = params['a']
+    b = params['b']
+    return func3(t, a, b)
+
+
+def intensity_rate_at_time4(t, params):
+    a = params['a']
+    b = params['b']
+    beta = params['beta']
+    return func4(t, a, b, beta)
+
+
+def intensity_rate_at_time5(t, params):
+    a = params['a']
+    r = params['r']
+    alpha = params['alpha']
+    beta = params['beta']
+    return func5(t, a, r, alpha, beta)
 
 
 intensity_rate_at_times = {0: intensity_rate_at_time0,
                            1: intensity_rate_at_time1,
-                           2: intensity_rate_at_time2}
+                           2: intensity_rate_at_time2,
+                           3: intensity_rate_at_time3,
+                           4: intensity_rate_at_time4,
+                           5: intensity_rate_at_time5}
 
 
 def remaining_faults_until_target0(t, params, lambda_f):
@@ -115,6 +137,8 @@ def remaining_time_until_target0(t, params, lambda_f):
     lambda0 = params['lambda0']
     v0 = params['v0']
     lambda_p = intensity_rate_at_time0(t, params)
+    if lambda_p <= lambda_f:
+        return 0
     return (v0/lambda0)*np.log(lambda_p/lambda_f)
 
 
@@ -122,18 +146,61 @@ def remaining_time_until_target1(t, params, lambda_f):
     lambda0 = params['lambda0']
     theta = params['theta']
     lambda_p = intensity_rate_at_time1(t, params)
+    if lambda_p <= lambda_f:
+        return 0
     return (lambda0 - lambda_f)/(lambda_f*lambda0*theta) - (lambda0 - lambda_p)/(lambda_p*lambda0*theta)
 
 
 def remaining_time_until_target2(t, params, lambda_f):
     b = params['b']
     lambda_p = intensity_rate_at_time2(t, params)
+    if lambda_p <= lambda_f:
+        return 0
     return (np.log(lambda_p) - np.log(lambda_f))/b
+
+
+def remaining_time_until_target3(t, params, lambda_f):
+    lambda_p = intensity_rate_at_time3(t, params)
+    if lambda_p <= lambda_f:
+        return 0
+
+    delta_t = 0
+    while lambda_p > lambda_f:
+        delta_t += 1
+        lambda_p = intensity_rate_at_time3(t + delta_t, params)
+    return delta_t
+
+
+def remaining_time_until_target4(t, params, lambda_f):
+    lambda_p = intensity_rate_at_time4(t, params)
+    if lambda_p <= lambda_f:
+        return 0
+
+    delta_t = 0
+    while lambda_p > lambda_f:
+        delta_t += 1
+        lambda_p = intensity_rate_at_time4(t + delta_t, params)
+    return delta_t
+
+
+def remaining_time_until_target5(t, params, lambda_f):
+    lambda_p = intensity_rate_at_time5(t, params)
+    if lambda_p <= lambda_f:
+        return 0
+
+    delta_t = 0
+    while lambda_p > lambda_f:
+        delta_t += 1
+        lambda_p = intensity_rate_at_time5(t + delta_t, params)
+    return delta_t
 
 
 remaining_time_until_targets = {0: remaining_time_until_target0,
                                 1: remaining_time_until_target1,
-                                2: remaining_time_until_target2}
+                                2: remaining_time_until_target2,
+                                3: remaining_time_until_target3,
+                                4: remaining_time_until_target4,
+                                5: remaining_time_until_target5}
 
 
 def intensity_rate_decrement_per_fault0(lambda0, v0):
@@ -241,6 +308,20 @@ def faults_in_time_range(t1, t2, params, model):
 
 def reliability(model_number, t, params, x):
     return numpy.exp(mius[model_number](t, params) - mius[model_number](t+x, params))
+
+
+def safe_time_reliability(model_number, t, params, target):
+    i = 0
+    r = reliability(model_number, t, params, i)
+    if r < target:
+        return 0
+
+    while r >= target:
+        i += 1
+        r = reliability(model_number, t, params, i)
+
+    print(i)
+    return i
 
 
 def plot(xdata, ydata, popt):
