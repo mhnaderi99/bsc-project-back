@@ -9,7 +9,8 @@ warnings.filterwarnings('ignore')
 
 
 models = 6
-file_number = 1
+file_number = 2
+
 
 def fault_rate(row):
     if row['normal_time'] != 0:
@@ -331,10 +332,10 @@ def plot(xdata, ydata, popt):
 
 
 def read_file(data_index):
-    datasets = ['./downloads/atnt_data.xlsx', './downloads/musa_dataset.xlsx']
+    datasets = ['./downloads/atnt_data.xlsx', './downloads/musa_dataset.xlsx', './downloads/ntds_data.xlsx']
     df = pd.read_excel(datasets[data_index])
     df['fault_rate'] = df.apply(lambda row: fault_rate(row), axis=1)
-    training_size = max(4*int(df['num'].size / 5), 15)
+    training_size = max(4*int(df['num'].size / 5), 20)
     start_index = 1
     x = df['normal_time'].to_numpy()[start_index:training_size]
     y = df['fault_rate'].to_numpy()[start_index:training_size]
@@ -372,15 +373,19 @@ class Model:
         para = self.params
         self.model = model_number
         x, y, nums, eval_x, eval_nums = read_file(file_number)
-        popt2, pcov2 = curve_fit(ms[self.model], x, nums, maxfev=10000)
+        popt2, pcov2 = curve_fit(ms[self.model], x, nums, maxfev=100000)
 
         self.params = handle_params(self.model, popt2)
 
         miiu_eval = mius[self.model](eval_x, self.params)
+        x2 = np.linspace(np.min(x), np.max(x), num=1000)
+        miiu = mius[self.model](x, self.params)
+        error_fit = np.sqrt(np.sum(np.power(miiu - nums, 2)) / len(eval_nums))
         error_eval = np.sum(np.power(miiu_eval - eval_nums, 2)) / len(eval_nums)
+
         self.params = para
         self.model = mod
-        return error_eval
+        return error_fit
 
     def calculate_errors(self):
         errors = []
@@ -392,7 +397,7 @@ class Model:
     def handle(self):
         x, y, nums, eval_x, eval_nums = read_file(file_number)
         self.now = x.max() + 1
-        popt2, pcov2 = curve_fit(ms[self.model], x, nums, maxfev=100000)
+        popt2, pcov2 = curve_fit(ms[self.model], x, nums, maxfev=100000, method='trf')
 
         self.params = handle_params(self.model, popt2)
 
