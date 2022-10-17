@@ -9,7 +9,8 @@ warnings.filterwarnings('ignore')
 
 
 models = 6
-file_number = 2
+file_number = 1
+methods = ['trf', 'lm', 'trf']
 
 
 def fault_rate(row):
@@ -332,15 +333,16 @@ def plot(xdata, ydata, popt):
 
 
 def read_file(data_index):
+    scales = [1, 10, 1]
     datasets = ['./downloads/atnt_data.xlsx', './downloads/musa_dataset.xlsx', './downloads/ntds_data.xlsx']
     df = pd.read_excel(datasets[data_index])
-    df['fault_rate'] = df.apply(lambda row: fault_rate(row), axis=1)
+    df['fault_rate'] = df.apply(lambda row: fault_rate(row), axis=1)*scales[file_number]
     training_size = max(4*int(df['num'].size / 5), 20)
     start_index = 1
-    x = df['normal_time'].to_numpy()[start_index:training_size]
+    x = df['normal_time'].to_numpy()[start_index:training_size]/scales[file_number]
     y = df['fault_rate'].to_numpy()[start_index:training_size]
     nums = df['num'].to_numpy()[start_index:training_size]
-    eval_x = df['normal_time'].to_numpy()[training_size:]
+    eval_x = df['normal_time'].to_numpy()[training_size:]/scales[file_number]
     eval_nums = df['num'].to_numpy()[training_size:]
     return x, y, nums, eval_x, eval_nums
 
@@ -373,7 +375,7 @@ class Model:
         para = self.params
         self.model = model_number
         x, y, nums, eval_x, eval_nums = read_file(file_number)
-        popt2, pcov2 = curve_fit(ms[self.model], x, nums, maxfev=100000)
+        popt2, pcov2 = curve_fit(ms[self.model], x, nums, maxfev=100000, method=methods[file_number])
 
         self.params = handle_params(self.model, popt2)
 
@@ -397,7 +399,7 @@ class Model:
     def handle(self):
         x, y, nums, eval_x, eval_nums = read_file(file_number)
         self.now = x.max() + 1
-        popt2, pcov2 = curve_fit(ms[self.model], x, nums, maxfev=100000, method='trf')
+        popt2, pcov2 = curve_fit(ms[self.model], x, nums, maxfev=100000, method=methods[file_number])
 
         self.params = handle_params(self.model, popt2)
 
